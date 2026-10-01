@@ -1,0 +1,12 @@
+node_modules
+dist
+data
+data-demo
+.env
+.env.*
+!.env.example
+.git
+coverage
+test
+public/assets/app.js
+public/assets/*.map
