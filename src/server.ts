@@ -19,7 +19,8 @@ async function main() {
   if (bootstrap === 'skipped-not-configured' && ctx.accounts.countUsers() === 0) {
     console.warn('No accounts exist yet. Set ADMIN_EMAIL and ADMIN_PASSWORD and restart to create the first administrator.');
   }
-  if (!ctx.jev.configured) console.warn('TYPESAFE_API_KEY is not set: only cached concepts can be generated.');
+  if (ctx.jev.configured) console.log(`Jev provider: ${ctx.jev.provider}`);
+  else console.warn('Jev is not configured (set TYPESAFE_API_KEY, or CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_TOKEN): only cached concepts can be generated.');
   if (ctx.mail.name === 'unconfigured') console.warn('Email is not configured: invitations, verification and password resets will fail.');
   if (ctx.mail.name === 'log') console.warn('Development mail transport: emails (including links) are printed to the console.');
 

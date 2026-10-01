@@ -67,12 +67,13 @@ export function adminPage(p: {
   mailStatus: string;
   cache: { entries: number; current: number; hits: number; requests: number };
   jevConfigured: boolean;
+  jevProvider: string;
   flash?: { kind: 'success' | 'error' | 'info'; message: string } | null;
 }): SafeHtml {
   const saved = p.cache.hits;
   return html`<h1>Administration</h1>
   ${p.mailStatus !== 'ok' ? html`<div class="flash flash-error" role="alert">${p.mailStatus}</div>` : ''}
-  ${p.jevConfigured ? '' : html`<div class="flash flash-error" role="alert">TYPESAFE_API_KEY is not set: new concepts cannot be evaluated.</div>`}
+  ${p.jevConfigured ? '' : html`<div class="flash flash-error" role="alert">Jev is not configured (set TYPESAFE_API_KEY, or CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN): new concepts cannot be evaluated.</div>`}
   <div class="cards-3">
     <section class="panel">
       <h2 class="panel-title">Registration</h2>
@@ -83,7 +84,7 @@ export function adminPage(p: {
     </section>
     <section class="panel">
       <h2 class="panel-title">Semantic cache</h2>
-      <dl class="dl"><dt>Cached judgements</dt><dd>${p.cache.current} current · ${p.cache.entries} total</dd><dt>Requests served</dt><dd>${p.cache.requests}</dd><dt>Jev calls avoided</dt><dd>${saved}</dd></dl>
+      <dl class="dl"><dt>Jev route</dt><dd>${p.jevConfigured ? p.jevProvider : 'not configured'}</dd><dt>Cached judgements</dt><dd>${p.cache.current} current · ${p.cache.entries} total</dd><dt>Requests served</dt><dd>${p.cache.requests}</dd><dt>Jev calls avoided</dt><dd>${saved}</dd></dl>
       ${p.cache.entries > p.cache.current
         ? html`<form method="post" action="/admin/cache/purge-stale" class="inline-form">${csrfField(p.csrf)}<button class="btn btn-ghost btn-sm" type="submit">Remove stale versions</button></form>`
         : ''}
