@@ -31,6 +31,9 @@ export type JevErrorCode =
   | 'malformed_response';
 
 export class JevError extends Error {
+  /** Server-suggested wait before retrying (from Retry-After), if any. */
+  retryAfterMs?: number;
+
   constructor(
     public readonly code: JevErrorCode,
     message: string,
@@ -43,6 +46,8 @@ export class JevError extends Error {
 
 /** The only thing the rest of the app knows about Jev. Tests inject a fake. */
 export interface JevClient {
+  /** Human-readable route, e.g. "TypeSafe API" or "Cloudflare AI Gateway". */
+  readonly provider: string;
   readonly configured: boolean;
   evaluate(concept: string): Promise<JevResult>;
 }
@@ -56,6 +61,7 @@ export interface TypeSafeJevOptions {
 
 /** Real client backed by TypeSafe's official SDK (server-side only). */
 export class TypeSafeJevClient implements JevClient {
+  readonly provider = 'TypeSafe API';
   private readonly client: TypeSafeClient | null;
 
   constructor(private readonly options: TypeSafeJevOptions) {
@@ -77,7 +83,7 @@ export class TypeSafeJevClient implements JevClient {
 
   async evaluate(concept: string): Promise<JevResult> {
     if (!this.client) {
-      throw new JevError('not_configured', 'Jev is not configured: set TYPESAFE_API_KEY on the server.');
+      throw new JevError('not_configured', 'Jev is not configured: set TYPESAFE_API_KEY (or JEV_PROVIDER=cloudflare with Cloudflare credentials) on the server.');
     }
     if (!concept.trim()) throw new JevError('empty_input', 'Concept must not be empty.');
 

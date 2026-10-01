@@ -31,6 +31,17 @@ file explains *why* things are built the way they are.
   component playground is plain HTML driven by CSS custom properties.
 * **vitest + supertest** for tests; Jev and mail are always faked in tests.
 
+### Jev routes
+
+`JevClient` has two implementations chosen by `JEV_PROVIDER`: the official
+TypeSafe SDK (direct), and Cloudflare's REST API (`POST
+/accounts/{id}/ai/run`, `model: "typesafe/jev"`, optional
+`cf-aig-gateway-id`), which adds AI Gateway logging/rate limiting and bills
+through Cloudflare Unified Billing. Cloudflare's `input` is exactly
+TypeSafe's `{state, questions}`, so both routes share the question set,
+answer validation and cache entries. Cloudflare responses may arrive bare or
+in the v4 `{success, result, errors}` envelope; both are accepted.
+
 ## 3. Pipeline
 
 ```

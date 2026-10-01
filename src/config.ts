@@ -15,10 +15,20 @@ export interface AppConfig {
   databaseFile: string;
   trustProxy: string | number | boolean;
   jev: {
+    /** Where Jev requests go: TypeSafe directly, or Cloudflare's REST API / AI Gateway. */
+    provider: 'typesafe' | 'cloudflare';
     apiKey: string | null;
     model: string;
     timeoutMs: number;
     baseUrl: string | null;
+    cloudflare: {
+      accountId: string | null;
+      apiToken: string | null;
+      /** Optional named AI Gateway; Cloudflare uses the account default otherwise. */
+      gatewayId: string | null;
+      model: string;
+      baseUrl: string;
+    };
   };
   admin: { email: string | null; password: string | null };
   mail: {
@@ -100,6 +110,26 @@ export function loadConfig(env: Env = process.env): AppConfig {
     throw new ConfigError('PUBLIC_BASE_URL must use https in production (OAuth requires it)');
   }
 
+  // Jev provider. Explicit JEV_PROVIDER wins; otherwise TypeSafe if its key is
+  // set, Cloudflare if only Cloudflare credentials are set.
+  const tsKey = str(env, 'TYPESAFE_API_KEY');
+  const cfAccount = str(env, 'CLOUDFLARE_ACCOUNT_ID');
+  const cfToken = str(env, 'CLOUDFLARE_API_TOKEN');
+  const providerRaw = (str(env, 'JEV_PROVIDER') ?? '').toLowerCase();
+  let jevProvider: AppConfig['jev']['provider'];
+  if (providerRaw === '') jevProvider = !tsKey && (cfAccount || cfToken) ? 'cloudflare' : 'typesafe';
+  else if (providerRaw === 'typesafe' || providerRaw === 'cloudflare') jevProvider = providerRaw;
+  else throw new ConfigError('JEV_PROVIDER must be "typesafe" or "cloudflare"');
+  if (jevProvider === 'cloudflare' && (!cfAccount || !cfToken)) {
+    throw new ConfigError(
+      'JEV_PROVIDER=cloudflare needs both CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN (a token with Account > Workers AI > Read).',
+    );
+  }
+  const cfGateway = str(env, 'CLOUDFLARE_AI_GATEWAY_ID');
+  if (cfGateway !== null && !/^[A-Za-z0-9_-]{1,64}$/.test(cfGateway)) {
+    throw new ConfigError('CLOUDFLARE_AI_GATEWAY_ID must be a gateway ID (letters, digits, "-" or "_")');
+  }
+
   const dataDir = path.resolve(str(env, 'DATA_DIR') ?? (appEnv === 'production' ? '/data' : './data'));
 
   // Optional perimeter Basic Auth: both or neither.
@@ -145,10 +175,18 @@ export function loadConfig(env: Env = process.env): AppConfig {
     databaseFile: path.join(dataDir, 'chromajev.sqlite'),
     trustProxy: parseTrustProxy(str(env, 'TRUST_PROXY')),
     jev: {
-      apiKey: str(env, 'TYPESAFE_API_KEY'),
+      provider: jevProvider,
+      apiKey: tsKey,
       model: str(env, 'JEV_MODEL') ?? 'jev-latest',
       timeoutMs: int(env, 'JEV_TIMEOUT_MS', 20000),
       baseUrl: str(env, 'TYPESAFE_BASE_URL'),
+      cloudflare: {
+        accountId: cfAccount,
+        apiToken: cfToken,
+        gatewayId: cfGateway,
+        model: str(env, 'CLOUDFLARE_JEV_MODEL') ?? 'typesafe/jev',
+        baseUrl: (str(env, 'CLOUDFLARE_API_BASE_URL') ?? 'https://api.cloudflare.com/client/v4').replace(/\/+$/, ''),
+      },
     },
     admin: { email: str(env, 'ADMIN_EMAIL'), password: str(env, 'ADMIN_PASSWORD') },
     mail: {

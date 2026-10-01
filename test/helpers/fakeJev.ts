@@ -82,6 +82,7 @@ export function fakeAnswers(concept: string): Record<string, unknown> {
 }
 
 export class FakeJevClient implements JevClient {
+  readonly provider = 'Fake (tests)';
   calls: string[] = [];
   configured = true;
   failWith: Error | null = null;

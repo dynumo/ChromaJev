@@ -359,6 +359,7 @@ export function webRoutes(ctx: AppContext): Router {
           mailStatus,
           cache: ctx.cache.stats(),
           jevConfigured: ctx.cache.jevConfigured,
+          jevProvider: ctx.jev.provider,
         }),
       }),
     );

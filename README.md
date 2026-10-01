@@ -45,6 +45,25 @@ One Node.js process, one SQLite file, one Docker image. Design notes and the res
 
 Jev is a *decision* model: given `state` and typed questions it returns calibrated probabilities over bounded options — it does not write text or invent values. That is exactly what colour *direction* needs (“does Teal belong with ‘calm healthcare’?”, “how warm should it feel?”), while everything numeric (contrast ratios, lightness, gamut) is something code does exactly. TypeSafe’s own guidance for jev‑1.13 says it judges **colour names far better than hex values** and that maths belongs in code, so ChromaJev never shows Jev a hex code and never asks it to compute anything.
 
+### Jev providers: TypeSafe direct or Cloudflare AI Gateway
+
+Jev can be reached two ways; both send the same question set and return the same answers, so the cache, palettes, API and MCP behave identically (cached judgements are shared between them).
+
+| | TypeSafe API (default) | Cloudflare AI Gateway |
+| --- | --- | --- |
+| Endpoint | `POST https://api.typesafe.ai/v1/systemone` (official SDK) | `POST https://api.cloudflare.com/client/v4/accounts/{account}/ai/run` with `model: "typesafe/jev"` |
+| Credentials | `TYPESAFE_API_KEY` | `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN` |
+| Billing | TypeSafe account | Cloudflare [Unified Billing](https://developers.cloudflare.com/ai-gateway/features/unified-billing/) credits (pass-through price plus Cloudflare’s credit fee) |
+| Extras | pin a version with `JEV_MODEL` | gateway logging, analytics, rate limiting and guardrails; Jev is listed by Cloudflare as zero data retention |
+
+To use Cloudflare:
+
+1. In the Cloudflare dashboard, open **AI › AI Gateway** and load credits (**Credits Available › Manage**). Optionally create a gateway (e.g. `chromajev`).
+2. Create an API token with **Account › Workers AI › Read** (an AI Gateway-only permission returns 401).
+3. Set `JEV_PROVIDER=cloudflare`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` and optionally `CLOUDFLARE_AI_GATEWAY_ID` (sent as the `cf-aig-gateway-id` header; otherwise the default gateway is used).
+
+ChromaJev retries 408/429/5xx with backoff (honouring `Retry-After`) and reports authentication, credit (402) and bad-account (404) problems clearly. The active route is shown under **Admin › Semantic cache**. Note that `JEV_MODEL` version pinning applies only to the TypeSafe route; Cloudflare serves its current `typesafe/jev`, and the versioned model that actually answered (e.g. `jev-1.13.0`) is still recorded with every cached judgement.
+
 ## 3. How semantic colour evaluation works
 
 ChromaJev keeps a bounded **catalogue of 81 named colours** (`src/colour/catalogue.ts`): six-ish tones in each of ten hue families (red, orange, yellow, green, teal, cyan, blue, purple, pink, brown) plus warm greys, cool greys, neutral greys, near-blacks and near-whites. Each has a stable ID (`teal-deep`), a name (“Deep teal”), a hex value, its family, a one-line descriptor for Jev, and OKLCH coordinates computed at start-up.
@@ -270,6 +289,10 @@ See [`.env.example`](.env.example) for comments.
 | `JEV_MODEL` | `jev-latest` | Or a pinned version, e.g. `jev-1.13.0` |
 | `JEV_TIMEOUT_MS` | `20000` | Per attempt (SDK retries 429/5xx with backoff) |
 | `TYPESAFE_BASE_URL` | SDK default | Override API host |
+| `JEV_PROVIDER` | `typesafe`, or `cloudflare` if only Cloudflare credentials are set | Which route Jev requests take |
+| `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` | — | Cloudflare route (token: Account › Workers AI › Read) |
+| `CLOUDFLARE_AI_GATEWAY_ID` | account default gateway | Named AI Gateway to route through |
+| `CLOUDFLARE_JEV_MODEL` | `typesafe/jev` | Cloudflare catalogue ID |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | — | First-run admin only |
 | `MAIL_TRANSPORT` | `elastic` if key set; else `log` (dev) / `none` (prod) | |
 | `ELASTIC_EMAIL_API_KEY`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | —, —, `ChromaJev` | Email |
@@ -298,11 +321,11 @@ Code map: `src/colour` (OKLCH, contrast, catalogue) · `src/jev` (questions, cli
 ## 26. Testing
 
 ```bash
-npm test          # vitest — 116 tests
+npm test          # vitest — 129 tests
 npm run typecheck
 ```
 
-No test spends Jev credits or sends email: Jev is replaced by a deterministic fake and mail by an in-memory transport. Coverage includes colour conversion and contrast, palette roles, light/dark construction and cross-mode consistency, determinism, accessibility reporting honesty, alternatives and locks; cache hits/misses, normalisation, concurrency, failure handling and version invalidation; saved-scheme CRUD, slug collisions, ownership and stability; playground token usage; accounts, bootstrap, roles, last-admin protection, registration, verification, invitations (expiry, revocation, resend, reuse), password reset and anti-enumeration; Elastic Email requests and production mail rules; the HTTP API, scopes and CSRF; Basic Auth; and a full **OAuth + MCP** round trip (discovery, DCR, PKCE authorisation through the real login and consent pages, token exchange, tool and resource calls, 401/403 challenges, bad/expired/wrong-audience tokens, refresh, and disabled-account revocation).
+No test spends Jev credits or sends email: Jev is replaced by a deterministic fake and mail by an in-memory transport. Coverage includes colour conversion and contrast, palette roles, light/dark construction and cross-mode consistency, determinism, accessibility reporting honesty, alternatives and locks; cache hits/misses, normalisation, concurrency, failure handling and version invalidation; saved-scheme CRUD, slug collisions, ownership and stability; playground token usage; accounts, bootstrap, roles, last-admin protection, registration, verification, invitations (expiry, revocation, resend, reuse), password reset and anti-enumeration; Elastic Email requests and production mail rules; the Cloudflare AI Gateway route (request envelope, both response shapes, retries, error mapping, configuration); the HTTP API, scopes and CSRF; Basic Auth; and a full **OAuth + MCP** round trip (discovery, DCR, PKCE authorisation through the real login and consent pages, token exchange, tool and resource calls, 401/403 challenges, bad/expired/wrong-audience tokens, refresh, and disabled-account revocation).
 
 ## 27. CSS / JSON / Tailwind exports
 

@@ -11,7 +11,8 @@ import { openDatabase, type DB } from './db/database.js';
 import { AccountService } from './accounts/service.js';
 import { SettingsService } from './accounts/settings.js';
 import { SemanticCache } from './jev/cache.js';
-import { TypeSafeJevClient, type JevClient } from './jev/client.js';
+import type { JevClient } from './jev/client.js';
+import { createJevClient } from './jev/provider.js';
 import { ElasticEmailTransport, LogTransport, UnconfiguredTransport, type MailTransport } from './mail/mailer.js';
 import { SchemeService } from './schemes/service.js';
 import { createOAuthProvider, OAUTH_PREFIX } from './oauth/provider.js';
@@ -55,9 +56,7 @@ export function createMailTransport(config: AppConfig, log: (m: string) => void)
 export async function createApp(config: AppConfig, overrides: AppOverrides = {}) {
   const log = overrides.log ?? ((m: string) => console.log(m));
   const db = overrides.db ?? openDatabase(config.databaseFile);
-  const jev =
-    overrides.jev ??
-    new TypeSafeJevClient({ apiKey: config.jev.apiKey, model: config.jev.model, timeoutMs: config.jev.timeoutMs, baseUrl: config.jev.baseUrl });
+  const jev = overrides.jev ?? createJevClient(config);
   const mail = overrides.mail ?? createMailTransport(config, log);
   const settings = new SettingsService(db);
   const accounts = new AccountService(db, config, settings, mail, log);

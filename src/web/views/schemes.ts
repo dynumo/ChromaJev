@@ -47,7 +47,7 @@ export function generatorPage(p: { csrf: string; recent: string[]; initialConcep
   return html`<section class="hero hero-compact">
     <h1 class="hero-title">What should it <span class="rainbow">feel</span> like?</h1>
     <p class="hero-lead">Enter a word or short phrase. ChromaJev asks Jev once, then builds paired light and dark themes you can test, save and export.</p>
-    ${p.jevConfigured ? '' : html`<div class="flash flash-error" role="alert">Jev isn’t configured on this server (TYPESAFE_API_KEY is missing). Cached concepts still work; new ones will fail.</div>`}
+    ${p.jevConfigured ? '' : html`<div class="flash flash-error" role="alert">Jev isn’t configured on this server (no TypeSafe or Cloudflare credentials). Cached concepts still work; new ones will fail.</div>`}
     <form class="concept-form" data-generate-form autocomplete="off">
       <label class="sr-only" for="concept">Concept</label>
       <input id="concept" name="concept" maxlength="120" required placeholder="e.g. autumn forest" value="${p.initialConcept ?? ''}">
