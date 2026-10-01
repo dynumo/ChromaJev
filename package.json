@@ -1,0 +1,46 @@
+{
+  "name": "chromajev",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Coherent, accessible paired light/dark colour schemes from natural-language concepts, judged by TypeSafe's Jev.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "node scripts/build-client.mjs && node --env-file-if-exists=.env --import tsx --watch src/server.ts",
+    "dev:demo": "node scripts/build-client.mjs && tsx scripts/dev/fake-jev-server.mts",
+    "build": "tsc -p tsconfig.build.json && node scripts/build-client.mjs",
+    "build:client": "node scripts/build-client.mjs",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/express": "^2.0.1",
+    "@modelcontextprotocol/node": "^2.1.0",
+    "@modelcontextprotocol/server": "^2.2.0",
+    "@node-rs/argon2": "^2.2.1",
+    "@typesafe-ai/sdk": "^0.6.0",
+    "better-sqlite3": "^13.0.3",
+    "express": "^5.2.1",
+    "jose": "^6.2.12",
+    "oidc-provider": "^9.12.2",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.2.0",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.20.4",
+    "@types/oidc-provider": "^9.12.1",
+    "@types/supertest": "^7.2.1",
+    "esbuild": "^0.28.2",
+    "supertest": "^7.3.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}

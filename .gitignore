@@ -1,0 +1,16 @@
+node_modules/
+dist/
+public/assets/app.js
+public/assets/app.js.map
+data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+coverage/
+.DS_Store
+data-demo/
