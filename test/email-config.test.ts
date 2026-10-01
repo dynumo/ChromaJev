@@ -135,3 +135,17 @@ describe('health', () => {
     expect(t.jev.calls).toHaveLength(0);
   });
 });
+
+describe('public URL is authoritative for OAuth metadata', () => {
+  it('advertises https endpoints even when the proxy hop is not trusted', async () => {
+    const t = await makeApp({ PUBLIC_BASE_URL: 'https://cj.example.com', TRUST_PROXY: 'false' });
+    for (const path of ['/.well-known/oauth-authorization-server', '/.well-known/openid-configuration']) {
+      const res = await request(t.app).get(path).set('Host', 'cj.example.com').set('X-Forwarded-Proto', 'https');
+      expect(res.status).toBe(200);
+      expect(res.body.issuer).toBe('https://cj.example.com');
+      for (const k of ['authorization_endpoint', 'token_endpoint', 'registration_endpoint', 'jwks_uri']) {
+        expect(res.body[k], `${path} ${k}`).toMatch(/^https:\/\/cj\.example\.com\/oauth\//);
+      }
+    }
+  });
+});
