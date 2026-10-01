@@ -75,6 +75,35 @@ describe('Cloudflare AI Gateway Jev client', () => {
     expect(rb.usage).toEqual({ input_tokens: 4200, output_tokens: 90 });
   });
 
+  it('finds answers inside text-generation style and nested wrappers', async () => {
+    const answers = bare().answers;
+    const shapes = [
+      { success: true, result: { response: JSON.stringify(bare()), usage: { prompt_tokens: 4200, completion_tokens: 90 } } },
+      { success: true, result: { response: bare() } },
+      { success: true, result: { result: bare() } },
+      { result: { output: { answers, model: 'jev-1.13.0' } }, usage: { input_tokens: 1, output_tokens: 0 } },
+      { success: true, result: { response: JSON.stringify({ answers }), usage: { prompt_tokens: 7, completion_tokens: 3 } }, model: 'jev-1.13.0' },
+    ];
+    for (const shape of shapes) {
+      const r = await client([json(shape)]).c.evaluate('autumn forest');
+      expect(Object.keys(r.answers.fit)).toHaveLength(CATALOGUE.length);
+    }
+    const usageMapped = await client([json(shapes[0])]).c.evaluate('autumn forest');
+    expect(usageMapped.model).toBe('jev-1.13.0');
+    const workersUsage = await client([json(shapes[4])]).c.evaluate('autumn forest');
+    expect(workersUsage.usage).toEqual({ input_tokens: 7, output_tokens: 3 });
+    expect(workersUsage.model).toBe('jev-1.13.0');
+  });
+
+  it('reports the response structure (never its content) when answers are missing', async () => {
+    const err = await client([json({ success: true, result: { response: 'secret text here', usage: { prompt_tokens: 5 } } })])
+      .c.evaluate('x')
+      .catch((e) => e);
+    expect(err.code).toBe('malformed_response');
+    expect(err.message).toContain('{success: boolean, result: {response: string(16), usage: {prompt_tokens: number}}}');
+    expect(err.message).not.toContain('secret');
+  });
+
   it('rejects malformed answers', async () => {
     await expect(client([json({ result: { answers: { colour_affinity: 'nope' } } })]).c.evaluate('x')).rejects.toMatchObject({ code: 'malformed_response' });
     await expect(client([json({ success: true, result: { text: 'hello' } })]).c.evaluate('x')).rejects.toMatchObject({ code: 'malformed_response' });

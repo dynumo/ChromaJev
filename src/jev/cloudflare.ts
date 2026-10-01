@@ -80,7 +80,15 @@ export class CloudflareJevClient implements JevClient {
           : new JevError('unavailable', 'Could not reach Cloudflare.', true);
         continue;
       }
-      if (res.ok) return toResult(unwrap(await readJson(res)));
+      if (res.ok) {
+        try {
+          return toResult(unwrap(await readJson(res)));
+        } catch (err) {
+          // Visible in container logs; contains structure only, never content.
+          console.warn(`Cloudflare Jev response not understood: ${(err as Error).message}`);
+          throw err;
+        }
+      }
       lastError = await errorFor(res);
       if (!RETRYABLE.has(res.status)) throw lastError;
     }
@@ -96,22 +104,86 @@ async function readJson(res: Response): Promise<unknown> {
   }
 }
 
-/**
- * Cloudflare's v4 API usually wraps results as `{ success, result, errors }`;
- * the model docs show Jev's response bare. Accept both.
- */
-export function unwrap(body: unknown): { model?: unknown; answers?: unknown; usage?: unknown } {
-  if (body && typeof body === 'object') {
-    const b = body as Record<string, unknown>;
-    if (b.success === false) {
-      throw new JevError('rejected', `Cloudflare reported an error: ${describeErrors(b.errors)}`);
-    }
-    if ('answers' in b) return b;
-    if (b.result && typeof b.result === 'object' && 'answers' in (b.result as object)) {
-      return b.result as { model?: unknown; answers?: unknown; usage?: unknown };
-    }
+type JevPayload = { model?: unknown; answers?: unknown; usage?: unknown };
+
+/** Wrapper keys Cloudflare may nest a model's output under. */
+const WRAPPERS = ['result', 'response', 'output', 'data', 'body'];
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === 'object' && !Array.isArray(v);
+}
+
+/** JSON-encoded strings (e.g. a text-generation style `response`) are decoded. */
+function decode(v: unknown): unknown {
+  if (typeof v !== 'string') return v;
+  const t = v.trim();
+  if (!t.startsWith('{')) return v;
+  try {
+    return JSON.parse(t);
+  } catch {
+    return v;
   }
-  throw new JevError('malformed_response', 'Cloudflare returned a response without Jev answers.');
+}
+
+/** Normalise usage from TypeSafe ({input_tokens}) or Workers AI ({prompt_tokens}) style. */
+function normaliseUsage(u: unknown): { input_tokens?: number; output_tokens?: number } | undefined {
+  if (!isRecord(u)) return undefined;
+  const input = u.input_tokens ?? u.prompt_tokens;
+  const output = u.output_tokens ?? u.completion_tokens;
+  return {
+    ...(typeof input === 'number' ? { input_tokens: input } : {}),
+    ...(typeof output === 'number' ? { output_tokens: output } : {}),
+  };
+}
+
+/**
+ * Find Jev's `{ model, answers, usage }` inside whatever Cloudflare wraps it
+ * in: bare, the v4 envelope `{ success, result }`, a text-generation style
+ * `{ result: { response } }` (object or JSON string), or similar nesting.
+ */
+export function unwrap(body: unknown): JevPayload {
+  if (isRecord(body) && body.success === false) {
+    throw new JevError('rejected', `Cloudflare reported an error: ${describeErrors(body.errors)}`);
+  }
+  let outerUsage: unknown;
+  let outerModel: unknown;
+  let level: unknown[] = [body];
+  for (let depth = 0; depth < 5 && level.length; depth++) {
+    const next: unknown[] = [];
+    for (const raw of level) {
+      const node = decode(raw);
+      if (!isRecord(node)) continue;
+      outerUsage ??= node.usage;
+      if (typeof node.model === 'string') outerModel ??= node.model;
+      if (isRecord(node.answers)) {
+        return {
+          model: typeof node.model === 'string' ? node.model : outerModel,
+          answers: node.answers,
+          usage: normaliseUsage(node.usage ?? outerUsage),
+        };
+      }
+      for (const k of WRAPPERS) if (k in node) next.push(node[k]);
+    }
+    level = next;
+  }
+  throw new JevError(
+    'malformed_response',
+    `Cloudflare returned a response without Jev answers. Response shape: ${describeShape(body)}`,
+  );
+}
+
+/** Structure only (keys and types, never values), safe to log and show. */
+export function describeShape(v: unknown, depth = 0): string {
+  const d = decode(v);
+  if (d !== v && typeof v === 'string') return `json-string(${describeShape(d, depth)})`;
+  if (Array.isArray(v)) return depth > 2 ? 'array' : `array[${v.length}]${v.length ? `<${describeShape(v[0], depth + 1)}>` : ''}`;
+  if (isRecord(v)) {
+    if (depth > 2) return 'object';
+    const keys = Object.keys(v).slice(0, 12);
+    return `{${keys.map((k) => `${k}: ${describeShape(v[k], depth + 1)}`).join(', ')}${Object.keys(v).length > 12 ? ', …' : ''}}`;
+  }
+  if (typeof v === 'string') return `string(${v.length})`;
+  return v === null ? 'null' : typeof v;
 }
 
 function describeErrors(errors: unknown): string {
