@@ -81,6 +81,19 @@ export async function createApp(config: AppConfig, overrides: AppOverrides = {})
     }
   });
 
+  // Warn once if a reverse proxy sends forwarded headers but is not trusted:
+  // client IPs (rate limits) would all collapse to the proxy's address.
+  let proxyWarned = false;
+  app.use((req, _res, next) => {
+    if (!proxyWarned && req.headers['x-forwarded-for'] && req.ip === req.socket.remoteAddress) {
+      proxyWarned = true;
+      log(
+        `Requests arrive via a proxy at ${req.socket.remoteAddress} that is not trusted (TRUST_PROXY=${String(config.trustProxy)}). ` +
+          'If this is your reverse proxy (e.g. Traefik), set TRUST_PROXY to include it (e.g. TRUST_PROXY=1) so client IPs and rate limits are correct.',
+      );
+    }
+    next();
+  });
   app.use(securityHeaders(config));
   app.use(basicAuth(config));
   app.use('/assets', express.static(path.join(PUBLIC_DIR, 'assets'), { maxAge: config.env === 'production' ? '1h' : 0 }));
@@ -110,12 +123,16 @@ export async function createApp(config: AppConfig, overrides: AppOverrides = {})
     res.json(prm);
   });
 
-  // The authorisation server is oidc-provider (a Koa app). Express decides
-  // which forwarded headers to trust, then passes the provider only those.
+  // The authorisation server is oidc-provider (a Koa app), which builds its
+  // endpoint URLs from the request. PUBLIC_BASE_URL is authoritative, so the
+  // provider always sees the public protocol and host — never client-supplied
+  // forwarded headers, and never "http" just because the proxy hop (e.g.
+  // Traefik on another Docker network) is not in TRUST_PROXY.
   const providerCallback = provider.callback();
+  const publicProto = config.publicBaseUrl.protocol.replace(':', '');
   const toProvider = (req: Request, res: Response) => {
     for (const h of ['x-forwarded-host', 'x-forwarded-for', 'x-forwarded-proto', 'x-forwarded-port', 'forwarded']) delete req.headers[h];
-    req.headers['x-forwarded-proto'] = req.protocol;
+    req.headers['x-forwarded-proto'] = publicProto;
     req.headers['x-forwarded-for'] = req.ip ?? '';
     req.headers['x-forwarded-host'] = config.publicBaseUrl.host;
     providerCallback(req, res);
