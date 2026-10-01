@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  docker:
+    # Builds the real image and boots it the way Dokploy does: production
+    # settings, a volume on /data, then waits for the health check.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t chromajev:ci .
+      - name: Start container
+        run: |
+          docker volume create chromajev-ci-data
+          docker run -d --name chromajev -p 3000:3000 \
+            -e NODE_ENV=production \
+            -e PUBLIC_BASE_URL=https://chromajev.example.com \
+            -e DATA_DIR=/data \
+            -e ADMIN_EMAIL=admin@example.com \
+            -e ADMIN_PASSWORD='ci admin password' \
+            -v chromajev-ci-data:/data \
+            chromajev:ci
+      - name: Wait for health
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3000/health; then echo; break; fi
+            if [ "$(docker inspect -f '{{.State.Running}}' chromajev)" != "true" ]; then
+              echo "Container exited"; docker logs chromajev; exit 1
+            fi
+            sleep 2
+          done
+          curl -fsS http://localhost:3000/health
+      - name: Smoke checks
+        run: |
+          curl -fsS -o /dev/null http://localhost:3000/
+          curl -fsS http://localhost:3000/.well-known/oauth-protected-resource/mcp
+          echo
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3000/mcp)" = "401"
+          docker exec chromajev sh -c 'id -un; ls -la /data'
+      - name: Data survives a container replacement
+        run: |
+          docker rm -f chromajev
+          docker run -d --name chromajev -p 3000:3000 \
+            -e NODE_ENV=production -e PUBLIC_BASE_URL=https://chromajev.example.com -e DATA_DIR=/data \
+            -v chromajev-ci-data:/data chromajev:ci
+          for i in $(seq 1 30); do curl -fsS http://localhost:3000/health && break; sleep 2; done
+          docker logs chromajev 2>&1 | tee /tmp/logs.txt
+          ! grep -q "No accounts exist yet" /tmp/logs.txt
+      - name: Container logs
+        if: always()
+        run: docker logs chromajev || true
