@@ -1,5 +1,6 @@
 import type { User } from '../../accounts/service.js';
 import { html, type SafeHtml } from '../../util/html.js';
+import { assetUrl } from '../assets.js';
 
 export interface PageOptions {
   title: string;
@@ -32,10 +33,10 @@ export function page(o: PageOptions): string {
 <meta name="color-scheme" content="light dark">
 <meta name="csrf-token" content="${o.csrfToken ?? ''}">
 <title>${o.title} · ChromaJev</title>
-<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/assets/app.css">
-${o.includePlayground ? html`<link rel="stylesheet" href="/assets/playground.css">` : ''}
-<script src="/assets/app.js" defer></script>
+<link rel="icon" href="${assetUrl('favicon.svg')}" type="image/svg+xml">
+<link rel="stylesheet" href="${assetUrl('app.css')}">
+${o.includePlayground ? html`<link rel="stylesheet" href="${assetUrl('playground.css')}">` : ''}
+<script src="${assetUrl('app.js')}" defer></script>
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
