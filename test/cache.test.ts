@@ -65,6 +65,46 @@ describe('semantic cache', () => {
     expect(a.evaluation.id).toBe(b.evaluation.id);
   });
 
+  it('refresh asks Jev again and replaces the entry in place', async () => {
+    const first = await cache.getOrEvaluate('browser');
+    await cache.getOrEvaluate('browser'); // a hit, so counters are non-trivial
+    jev.model = 'jev-2.0.0';
+    const again = await cache.refresh('  Browser ');
+    expect(again.source).toBe('jev');
+    expect(jev.calls).toEqual(['browser', 'Browser']);
+    expect(again.evaluation.id).toBe(first.evaluation.id);
+    expect(again.evaluation.model).toBe('jev-2.0.0');
+    expect(db.prepare('SELECT COUNT(*) n FROM jev_evaluations').get()).toEqual({ n: 1 });
+    const served = await cache.getOrEvaluate('browser');
+    expect(served.source).toBe('cache');
+    expect(served.evaluation.model).toBe('jev-2.0.0');
+    const row = db.prepare('SELECT hit_count, request_count FROM jev_evaluations').get() as { hit_count: number; request_count: number };
+    expect(row.hit_count).toBe(2); // hits survive the refresh
+    expect(row.request_count).toBe(4);
+  });
+
+  it('refresh on an uncached concept simply stores it', async () => {
+    const r = await cache.refresh('ocean');
+    expect(r.source).toBe('jev');
+    expect((await cache.getOrEvaluate('ocean')).source).toBe('cache');
+  });
+
+  it('a failed refresh leaves the cached judgement untouched', async () => {
+    await cache.getOrEvaluate('forest');
+    jev.model = 'jev-2.0.0';
+    jev.failWith = new JevError('unavailable', 'down', true);
+    await expect(cache.refresh('forest')).rejects.toThrow('down');
+    jev.failWith = null;
+    expect((await cache.getOrEvaluate('forest')).evaluation.model).toBe('jev-1.13.0');
+  });
+
+  it('coalesces concurrent refreshes into one Jev request', async () => {
+    await cache.getOrEvaluate('ocean');
+    jev.delayMs = 30;
+    await Promise.all([cache.refresh('ocean'), cache.refresh('Ocean')]);
+    expect(jev.calls).toHaveLength(2);
+  });
+
   it('does not cache failures', async () => {
     jev.failWith = new JevError('rate_limited', 'slow down', true);
     await expect(cache.getOrEvaluate('forest')).rejects.toThrow('slow down');

@@ -1,6 +1,7 @@
 import type Provider from 'oidc-provider';
 import type { AccountService } from './accounts/service.js';
 import type { SettingsService } from './accounts/settings.js';
+import type { ChangelogService } from './changelog/service.js';
 import type { AppConfig } from './config.js';
 import type { DB } from './db/database.js';
 import type { SemanticCache } from './jev/cache.js';
@@ -17,6 +18,7 @@ export interface AppContext {
   schemes: SchemeService;
   accounts: AccountService;
   settings: SettingsService;
+  changelog: ChangelogService;
   mail: MailTransport;
   provider: Provider;
 }

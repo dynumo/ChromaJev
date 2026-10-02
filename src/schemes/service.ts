@@ -148,10 +148,12 @@ export class SchemeService {
 
   // ── Generation ──────────────────────────────────────────────────────────
 
-  async generate(actor: Actor, input: { concept: unknown; variation?: unknown; locks?: unknown }): Promise<GenerationResult> {
+  async generate(actor: Actor, input: { concept: unknown; variation?: unknown; locks?: unknown; refresh?: unknown }): Promise<GenerationResult> {
     const variation = validateVariation(input.variation);
     const locks = validateLocks(input.locks);
-    const lookup = await this.cache.getOrEvaluate(input.concept as string);
+    // refresh: ask Jev again and replace the cached judgement (costs a credit).
+    const lookup =
+      input.refresh === true ? await this.cache.refresh(input.concept as string) : await this.cache.getOrEvaluate(input.concept as string);
     const ev = lookup.evaluation;
     let scheme: ColourScheme;
     try {

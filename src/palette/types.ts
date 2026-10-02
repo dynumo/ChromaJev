@@ -1,7 +1,7 @@
 import type { ContrastLevel } from '../colour/contrast.js';
 
 /** Bump when palette construction changes. Saved schemes keep their values. */
-export const ALGORITHM_VERSION = 'pal-1';
+export const ALGORITHM_VERSION = 'pal-2';
 
 export const MODE_TOKENS = [
   'background',
@@ -97,6 +97,8 @@ export interface SemanticSummary {
   secondary: SemanticColourRef;
   accent: SemanticColourRef;
   neutral: { base: string; hue: number; chroma: number };
+  /** What the dark-mode page background is built from, and whether Jev or a heuristic chose it. */
+  darkSurface?: { kind: string; hue: number; chroma: number; source: 'jev' | 'heuristic' };
   monochrome: boolean;
 }
 
@@ -105,6 +107,7 @@ export interface JudgementSummary {
   dominantFamily: { key: string; p: number }[];
   accentFamily: { key: string; p: number }[];
   neutralBase: { key: string; p: number }[];
+  darkSurface?: { key: string; p: number }[];
   character: { key: string; p: number }[];
   temperature: { score: number; normalised: number; label: string; probabilities: number[] };
   saturation: { score: number; normalised: number; label: string; probabilities: number[] };

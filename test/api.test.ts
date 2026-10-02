@@ -24,6 +24,41 @@ const api = (k: string) => ({
   delete: (p: string) => request(t.app).delete(`/api${p}`).set('Authorization', `Bearer ${k}`),
 });
 
+describe('re-running a cached judgement', () => {
+  it('refresh: true asks Jev again, replaces the cached entry and is rate limited', async () => {
+    const first = await api(key).post('/schemes/generate', { concept: 'autumn forest' });
+    expect(first.body.cache.fromCache).toBe(false);
+    const cached = await api(key).post('/schemes/generate', { concept: 'autumn forest' });
+    expect(cached.body.cache.fromCache).toBe(true);
+    expect(t.jev.calls).toHaveLength(1);
+
+    t.jev.model = 'jev-2.0.0';
+    const again = await api(key).post('/schemes/generate', { concept: 'autumn forest', refresh: true });
+    expect(again.status).toBe(200);
+    expect(again.body.cache).toMatchObject({ fromCache: false, source: 'jev', model: 'jev-2.0.0', evaluationId: first.body.cache.evaluationId });
+    expect(t.jev.calls).toHaveLength(2);
+    expect((await api(key).post('/schemes/generate', { concept: 'autumn forest' })).body.cache.model).toBe('jev-2.0.0');
+
+    // only a literal boolean true refreshes
+    await api(key).post('/schemes/generate', { concept: 'autumn forest', refresh: 'yes' });
+    expect(t.jev.calls).toHaveLength(2);
+
+    for (let i = 0; i < 9; i++) expect((await api(key).post('/schemes/generate', { concept: 'autumn forest', refresh: true })).status).toBe(200);
+    const limited = await api(key).post('/schemes/generate', { concept: 'autumn forest', refresh: true });
+    expect(limited.status).toBe(429);
+    expect(limited.body.error.code).toBe('rate_limited');
+    // ordinary generation is unaffected by the refresh limit
+    expect((await api(key).post('/schemes/generate', { concept: 'autumn forest' })).status).toBe(200);
+  });
+
+  it('shows the Run again button only for cached results in the generator', async () => {
+    const { agent } = await loginAgent(t);
+    const page = await agent.get('/');
+    expect(page.text).toContain('data-rerun');
+    expect(page.text.indexOf('data-rerun')).toBeLessThan(page.text.indexOf('data-another'));
+  });
+});
+
 describe('HTTP API', () => {
   it('requires authentication', async () => {
     const res = await request(t.app).get('/api/schemes');

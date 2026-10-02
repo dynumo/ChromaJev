@@ -169,4 +169,20 @@ export const migrations: Migration[] = [
       CREATE INDEX oauth_models_expiry ON oauth_models(expires_at);
     `,
   },
+  {
+    version: 2,
+    name: 'changelog entries',
+    sql: `
+      CREATE TABLE changelog_entries (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        body TEXT NOT NULL,
+        published_at TEXT NOT NULL,
+        created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX changelog_published ON changelog_entries(published_at);
+    `,
+  },
 ];

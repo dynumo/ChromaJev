@@ -83,6 +83,7 @@ export const CURRENT_VERSIONS: CacheVersions = { catalogue: CATALOGUE_VERSION, q
  */
 export class SemanticCache {
   private readonly inFlight = new Map<string, Promise<EvaluationLookup>>();
+  private readonly inFlightRefresh = new Map<string, Promise<EvaluationLookup>>();
 
   constructor(
     private readonly db: DB,
@@ -111,12 +112,27 @@ export class SemanticCache {
       const result = await pending;
       return { evaluation: result.evaluation, source: 'cache' };
     }
-    const promise = this.evaluateAndStore(tidy, key).finally(() => this.inFlight.delete(key));
+    const promise = this.evaluateAndStore(tidy, key, false).finally(() => this.inFlight.delete(key));
     this.inFlight.set(key, promise);
     return promise;
   }
 
-  private async evaluateAndStore(tidy: string, key: string): Promise<EvaluationLookup> {
+  /**
+   * Ask Jev again and replace the cached judgement for the current versions.
+   * The entry keeps its ID (so saved schemes still point at it) and its
+   * counters. If Jev fails the existing entry is left untouched.
+   */
+  async refresh(concept: string): Promise<EvaluationLookup> {
+    const tidy = validateConcept(concept);
+    const key = normaliseConcept(tidy);
+    const pending = this.inFlightRefresh.get(key);
+    if (pending) return pending; // a double-click costs one request
+    const promise = this.evaluateAndStore(tidy, key, true).finally(() => this.inFlightRefresh.delete(key));
+    this.inFlightRefresh.set(key, promise);
+    return promise;
+  }
+
+  private async evaluateAndStore(tidy: string, key: string, replace: boolean): Promise<EvaluationLookup> {
     const result = await this.jev.evaluate(tidy);
     const now = nowIso();
     const id = randomUUID();
@@ -126,7 +142,13 @@ export class SemanticCache {
           (id, normalised_query, original_query, catalogue_version, question_set_version, model, answers, usage,
            created_at, last_requested_at, request_count, hit_count)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0)
-         ON CONFLICT (normalised_query, catalogue_version, question_set_version) DO NOTHING`,
+         ${
+           replace
+             ? `ON CONFLICT (normalised_query, catalogue_version, question_set_version) DO UPDATE SET
+                  original_query = excluded.original_query, model = excluded.model, answers = excluded.answers, usage = excluded.usage,
+                  created_at = excluded.created_at, last_requested_at = excluded.last_requested_at, request_count = request_count + 1`
+             : 'ON CONFLICT (normalised_query, catalogue_version, question_set_version) DO NOTHING'
+         }`,
       )
       .run(
         id,

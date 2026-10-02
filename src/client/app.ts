@@ -51,6 +51,7 @@ interface Judgement {
   dominantFamily: Dist[];
   accentFamily: Dist[];
   neutralBase: Dist[];
+  darkSurface?: Dist[];
   character: Dist[];
   temperature: ScoreSummary;
   saturation: ScoreSummary;
@@ -388,6 +389,7 @@ class Workspace {
         dist('Dominant family', j.dominantFamily),
         dist('Accent family', j.accentFamily),
         dist('Neutral base', j.neutralBase),
+        ...(j.darkSurface ? [dist('Dark background', j.darkSurface)] : []),
         dist('Character', j.character),
       ),
       el(
@@ -449,19 +451,24 @@ function wireGenerator() {
   const ws = new Workspace(wsRoot);
   const saveForm = $<HTMLFormElement>('[data-save-form]')!;
   let current: SchemeData | null = null;
+  const rerun = $<HTMLButtonElement>('[data-rerun]');
   let busy = false;
 
-  async function generate(concept: string, variation = 0) {
+  async function generate(concept: string, variation = 0, refresh = false) {
     if (busy) return;
     busy = true;
-    status.textContent = variation ? 'Building another interpretation from the cached judgement…' : 'Asking Jev and building your palettes…';
+    status.textContent = refresh
+      ? 'Asking Jev again and rebuilding your palettes…'
+      : variation
+        ? 'Building another interpretation from the cached judgement…'
+        : 'Asking Jev and building your palettes…';
     status.className = 'status-line is-busy';
     try {
       const res = await fetch('/api/schemes/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf(), Accept: 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ concept, variation, locks: ws.locks }),
+        body: JSON.stringify({ concept, variation, locks: ws.locks, ...(refresh ? { refresh: true } : {}) }),
       });
       const json = await res.json().catch(() => null);
       if (!res.ok) throw new Error(json?.error?.message ?? `Request failed (${res.status})`);
@@ -470,6 +477,7 @@ function wireGenerator() {
       if (!variation) ws.mode = current.recommendedMode;
       ws.render(current);
       result.hidden = false;
+      if (rerun) rerun.hidden = !current.cache?.fromCache;
       status.textContent = '';
       status.className = 'status-line';
       const url = new URL(location.href);
@@ -498,6 +506,13 @@ function wireGenerator() {
   }
   $('[data-another]')?.addEventListener('click', () => {
     if (current) void generate(current.concept, (current.variation + 1) % Math.max(current.alternativesAvailable ?? 1, 1));
+  });
+  rerun?.addEventListener('click', () => {
+    if (!current) return;
+    const ok = window.confirm(
+      'Ask Jev about this concept again?\n\nThis uses a Jev credit and replaces the cached judgement that everyone sees for it. Schemes you have already saved are not changed.',
+    );
+    if (ok) void generate(current.concept, 0, true);
   });
   ws.onLockChange = () => undefined;
 

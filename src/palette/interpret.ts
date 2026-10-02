@@ -13,6 +13,7 @@ export interface Candidate {
 }
 
 export type NeutralBase = 'warm' | 'cool' | 'pure' | 'tinted';
+export type DarkSurfaceKind = 'black' | 'warm' | 'cool' | 'primary' | 'secondary';
 
 export interface Interpretation {
   candidates: Candidate[];
@@ -20,6 +21,8 @@ export interface Interpretation {
   accentFamily: Record<string, number>;
   neutralBase: NeutralBase;
   neutralBaseProbabilities: Record<string, number>;
+  /** Jev's answer for the dark-mode page background; null on older cached evaluations. */
+  darkSurfaceProbabilities: Record<string, number> | null;
   character: { key: string; p: number }[];
   temperature: number; // 0 very cool .. 1 very warm
   saturation: number; // 0 greyed .. 1 vivid
@@ -55,6 +58,7 @@ export function interpret(answers: JevAnswers): Interpretation {
     accentFamily: answers.accentFamily,
     neutralBase: nb ?? 'pure',
     neutralBaseProbabilities: answers.neutralBase,
+    darkSurfaceProbabilities: answers.darkSurface,
     character: topEntries(answers.character, 3),
     temperature: answers.temperature.normalised,
     saturation: answers.saturation.normalised,

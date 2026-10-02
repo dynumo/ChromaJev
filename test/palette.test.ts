@@ -65,6 +65,61 @@ describe('palette construction', () => {
     expect(s.dark.background).not.toBe(s.light.text);
   });
 
+  it('builds a deep shade of the brand colour for dark mode when Jev says so', () => {
+    const s = buildScheme('ruby city', answers('ruby city'));
+    expect(s.semantic.darkSurface).toMatchObject({ kind: 'primary', source: 'jev' });
+    const bg = hexToOklch(s.dark.background);
+    const brand = hexToOklch(s.semantic.primary.hex);
+    expect(bg.l).toBeLessThan(0.25);
+    expect(bg.c).toBeGreaterThan(0.03); // visibly coloured, not near-black
+    expect(hueDistance(bg.h, brand.h)).toBeLessThan(10);
+    // the surface ladder keeps the hue
+    expect(hueDistance(hexToOklch(s.dark.surface).h, brand.h)).toBeLessThan(15);
+  });
+
+  it('keeps black and brown dark backgrounds when Jev prefers them', () => {
+    const base = fakeAnswers('ruby city');
+    const withChoice = (key: string) => {
+      const keys = Object.keys((base.dark_surface as { probabilities: object }).probabilities);
+      const probabilities = Object.fromEntries(keys.map((k) => [k, k === key ? 0.9 : 0.025]));
+      return parseJevAnswers({ ...base, dark_surface: { type: 'choice', choice: key, probabilities } });
+    };
+    const black = buildScheme('ruby city', withChoice('black'));
+    expect(black.semantic.darkSurface?.kind).toBe('black');
+    expect(hexToOklch(black.dark.background).c).toBeLessThan(0.012);
+    const warm = buildScheme('ruby city', withChoice('warm'));
+    expect(warm.semantic.darkSurface?.kind).toBe('warm');
+    expect(hueDistance(hexToOklch(warm.dark.background).h, 75)).toBeLessThan(15);
+    const secondary = buildScheme('ruby city', withChoice('secondary'));
+    expect(secondary.semantic.darkSurface?.kind).toBe('secondary');
+    if (secondary.semantic.secondary.family !== 'neutral') {
+      expect(hueDistance(hexToOklch(secondary.dark.background).h, hexToOklch(secondary.semantic.secondary.hex).h)).toBeLessThan(10);
+    }
+  });
+
+  it('falls back to a heuristic for answers cached before dark_surface existed', () => {
+    const raw = fakeAnswers('ruby city');
+    delete raw.dark_surface;
+    const old = parseJevAnswers(raw);
+    expect(old.darkSurface).toBeNull();
+    const s = buildScheme('ruby city', old);
+    expect(s.semantic.darkSurface?.source).toBe('heuristic');
+    expect(s.judgement.darkSurface).toBeUndefined();
+    for (const check of s.accessibility.dark.checks) expect(check.passes).toBe(true);
+    // a malformed answer degrades the same way instead of failing the evaluation
+    expect(parseJevAnswers({ ...raw, dark_surface: { type: 'choice', probabilities: { black: 1 } } }).darkSurface).toBeNull();
+  });
+
+  it('keeps every dark mode accessible whatever the dark surface', () => {
+    const base = fakeAnswers('autumn forest');
+    for (const key of ['black', 'warm', 'cool', 'primary', 'secondary']) {
+      const keys = Object.keys((base.dark_surface as { probabilities: object }).probabilities);
+      const probabilities = Object.fromEntries(keys.map((k) => [k, k === key ? 0.9 : 0.025]));
+      const s = buildScheme('autumn forest', parseJevAnswers({ ...base, dark_surface: { type: 'choice', choice: key, probabilities } }));
+      for (const check of s.accessibility.dark.checks) expect(check.passes, `${key} ${check.id} ${check.ratio}`).toBe(true);
+    }
+  });
+
   it('keeps semantic identity consistent across modes', () => {
     for (const c of CONCEPTS) {
       const s = buildScheme(c, answers(c));

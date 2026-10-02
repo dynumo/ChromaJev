@@ -19,6 +19,7 @@ const HINTS: Record<string, string[]> = {
   cyberpunk: ['pink', 'cyan', 'purple'],
   brutalist: ['neutral'],
   retro: ['orange', 'yellow', 'brown'],
+  ruby: ['red'],
 };
 
 /**
@@ -55,6 +56,7 @@ export function fakeAnswers(concept: string): Record<string, unknown> {
   answers.dominant_family = choiceDist('dominant_family', [...families]);
   answers.accent_family = choiceDist('accent_family', [...families].slice(-1));
   answers.neutral_base = choiceDist('neutral_base', [families.has('neutral') ? 'pure' : 'warm']);
+  answers.dark_surface = choiceDist('dark_surface', [families.has('neutral') ? 'black' : families.has('brown') ? 'warm' : 'primary']);
   answers.character = choiceDist('character', ['calm']);
 
   const scoreAns = (key: string, centre: number) => {
@@ -87,11 +89,12 @@ export class FakeJevClient implements JevClient {
   configured = true;
   failWith: Error | null = null;
   delayMs = 0;
+  model = 'jev-1.13.0';
 
   async evaluate(concept: string): Promise<JevResult> {
     this.calls.push(concept);
     if (this.delayMs) await new Promise((r) => setTimeout(r, this.delayMs));
     if (this.failWith) throw this.failWith;
-    return toResult({ model: 'jev-1.13.0', answers: fakeAnswers(concept), usage: { input_tokens: 4200, output_tokens: 0 } });
+    return toResult({ model: this.model, answers: fakeAnswers(concept), usage: { input_tokens: 4200, output_tokens: 0 } });
   }
 }

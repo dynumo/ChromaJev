@@ -55,7 +55,7 @@ describe('Cloudflare AI Gateway Jev client', () => {
     expect(body.model).toBe('typesafe/jev');
     expect(body.input.state).toEqual({ concept: 'autumn forest' });
     expect(Object.keys(body.input.questions)).toContain('colour_affinity');
-    expect(Object.keys(body.input.questions)).toHaveLength(CATALOGUE.length + 11);
+    expect(Object.keys(body.input.questions)).toHaveLength(CATALOGUE.length + 12);
   });
 
   it('uses the default gateway when no gateway ID is set', async () => {
