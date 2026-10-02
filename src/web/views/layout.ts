@@ -6,7 +6,7 @@ export interface PageOptions {
   user?: User | null;
   csrfToken?: string;
   body: SafeHtml;
-  active?: 'generate' | 'schemes' | 'account' | 'admin' | 'docs';
+  active?: 'generate' | 'schemes' | 'account' | 'admin' | 'docs' | 'changelog';
   flash?: { kind: 'success' | 'error' | 'info'; message: string } | null;
   wide?: boolean;
   includePlayground?: boolean;
@@ -47,7 +47,7 @@ ${o.includePlayground ? html`<link rel="stylesheet" href="/assets/playground.css
 ${o.flash ? html`<div class="flash flash-${o.flash.kind}" role="status">${o.flash.message}</div>` : ''}
 ${o.body}
 </main>
-<footer class="site-footer"><p>ChromaJev · semantic judgement by TypeSafe’s Jev, colour mathematics by code · <a href="/docs/api">API</a> · <a href="/docs/mcp">MCP</a></p></footer>
+<footer class="site-footer"><p>ChromaJev · semantic judgement by TypeSafe’s Jev, colour mathematics by code · <a href="/docs/api">API</a> · <a href="/docs/mcp">MCP</a> · <a href="/changelog">Changelog</a></p></footer>
 </body></html>`}`;
 }
 

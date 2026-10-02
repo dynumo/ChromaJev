@@ -6,7 +6,7 @@ import { exportScheme, EXPORT_FORMATS, type ExportFormat } from '../palette/expo
 import { AppError, notFound } from '../util/errors.js';
 import { generationJson, savedJson, summaryJson } from './serialise.js';
 import { openApiDocument } from './openapi.js';
-import { csrfProtection } from '../web/middleware.js';
+import { csrfProtection, RateLimiter } from '../web/middleware.js';
 import type { Scope } from '../accounts/service.js';
 
 /**
@@ -55,12 +55,20 @@ export function apiRoutes(ctx: AppContext): Router {
 
   r.use(apiAuth(ctx));
 
+  // A refresh spends a Jev credit and replaces the judgement everyone shares.
+  const refreshLimiter = new RateLimiter(10, 60 * 60_000);
+
   r.post('/schemes/generate', scope('schemes:generate'), async (req, res) => {
+    const refresh = req.body?.refresh === true;
+    if (refresh && !refreshLimiter.attempt(req.user!.id)) {
+      throw new AppError(429, 'rate_limited', 'You have re-run a lot of judgements recently. Try again in a while.');
+    }
     try {
       const result = await ctx.schemes.generate(req.user!, {
         concept: req.body?.concept,
         variation: req.body?.variation,
         locks: req.body?.locks,
+        refresh,
       });
       res.json(generationJson(result));
     } catch (err) {

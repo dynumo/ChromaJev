@@ -89,11 +89,12 @@ export class FakeJevClient implements JevClient {
   configured = true;
   failWith: Error | null = null;
   delayMs = 0;
+  model = 'jev-1.13.0';
 
   async evaluate(concept: string): Promise<JevResult> {
     this.calls.push(concept);
     if (this.delayMs) await new Promise((r) => setTimeout(r, this.delayMs));
     if (this.failWith) throw this.failWith;
-    return toResult({ model: 'jev-1.13.0', answers: fakeAnswers(concept), usage: { input_tokens: 4200, output_tokens: 0 } });
+    return toResult({ model: this.model, answers: fakeAnswers(concept), usage: { input_tokens: 4200, output_tokens: 0 } });
   }
 }

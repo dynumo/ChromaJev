@@ -61,6 +61,7 @@ export function generatorPage(p: { csrf: string; recent: string[]; initialConcep
     <div class="result-head">
       <div><p class="eyebrow">Colour scheme for</p><h2 class="result-title" data-result-title></h2></div>
       <div class="row">
+        <button type="button" class="btn btn-ghost" data-rerun hidden title="Ask Jev again and replace the cached judgement — uses a Jev credit">⟳ Run again</button>
         <button type="button" class="btn btn-ghost" data-another title="Uses the cached judgement — no extra Jev credit">↻ Another interpretation</button>
         <button type="button" class="btn btn-primary" data-open-save>Save scheme</button>
       </div>

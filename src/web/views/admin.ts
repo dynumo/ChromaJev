@@ -1,6 +1,8 @@
 import type { ApiKey, Invitation, User } from '../../accounts/service.js';
 import { SCOPES } from '../../accounts/service.js';
 import type { ConnectedClient } from '../../oauth/adapter.js';
+import type { ChangelogEntry } from '../../changelog/service.js';
+import { MAX_BODY_LENGTH, MAX_TITLE_LENGTH } from '../../changelog/service.js';
 import { html, type SafeHtml } from '../../util/html.js';
 import { csrfField, formatDate } from './layout.js';
 
@@ -68,6 +70,7 @@ export function adminPage(p: {
   cache: { entries: number; current: number; hits: number; requests: number };
   jevConfigured: boolean;
   jevProvider: string;
+  changelog: ChangelogEntry[];
   flash?: { kind: 'success' | 'error' | 'info'; message: string } | null;
 }): SafeHtml {
   const saved = p.cache.hits;
@@ -97,6 +100,29 @@ export function adminPage(p: {
         <button class="btn btn-primary" type="submit">Send invitation</button></form>
     </section>
   </div>
+
+  <section class="panel" id="changelog">
+    <h2 class="panel-title">Changelog</h2>
+    <p class="muted small">Entries appear on the public <a href="/changelog">changelog page</a>, newest first. Plain text: a blank line starts a new paragraph, and lines beginning with “- ” become a bullet list.</p>
+    <form method="post" action="/admin/changelog" class="stack narrow">${csrfField(p.csrf)}
+      <label>Title<input name="title" maxlength="${MAX_TITLE_LENGTH}" required placeholder="e.g. Dark mode backgrounds can now use brand colours"></label>
+      <label>Details<textarea name="body" rows="5" maxlength="${MAX_BODY_LENGTH}" required></textarea></label>
+      <label>Date <span class="muted small">(optional, defaults to today)</span><input type="date" name="published_at"></label>
+      <button class="btn btn-primary" type="submit">Post update</button></form>
+    ${p.changelog.length
+      ? html`<h3>Posted updates</h3>${p.changelog.map(
+          (e) => html`<details class="changelog-admin">
+      <summary><strong>${e.title}</strong> <span class="muted small">· ${formatDate(e.publishedAt).replace(/,.*$/, '')}</span></summary>
+      <form method="post" action="/admin/changelog/${e.id}/edit" class="stack narrow">${csrfField(p.csrf)}
+        <label>Title<input name="title" maxlength="${MAX_TITLE_LENGTH}" required value="${e.title}"></label>
+        <label>Details<textarea name="body" rows="5" maxlength="${MAX_BODY_LENGTH}" required>${e.body}</textarea></label>
+        <label>Date<input type="date" name="published_at" value="${e.publishedAt.slice(0, 10)}"></label>
+        <button class="btn btn-secondary" type="submit">Save changes</button></form>
+      <form method="post" action="/admin/changelog/${e.id}/delete" class="inline-form" data-confirm="Delete “${e.title}”? This cannot be undone.">${csrfField(p.csrf)}<button class="btn btn-danger btn-sm" type="submit">Delete</button></form>
+    </details>`,
+        )}`
+      : ''}
+  </section>
 
   <section class="panel">
     <h2 class="panel-title">Invitations</h2>

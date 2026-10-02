@@ -8,7 +8,7 @@ export function apiDocsPage(base: string): SafeHtml {
   <p>Create a personal API key on your <a href="/account">account page</a> and send it as <code>Authorization: Bearer cj_…</code>. Keys carry scopes (<code>schemes:read</code>, <code>schemes:generate</code>, <code>schemes:write</code>) and only ever see the owner’s schemes.</p>
   <h2>Endpoints</h2>
   <table class="table"><thead><tr><th>Method</th><th>Path</th><th>Scope</th><th>Purpose</th></tr></thead><tbody>
-  <tr><td>POST</td><td><code>/api/schemes/generate</code></td><td>schemes:generate</td><td>Generate a paired light/dark scheme from <code>{"concept": "…"}</code>. Optional <code>variation</code> and <code>locks</code>. Uses the semantic cache before Jev.</td></tr>
+  <tr><td>POST</td><td><code>/api/schemes/generate</code></td><td>schemes:generate</td><td>Generate a paired light/dark scheme from <code>{"concept": "…"}</code>. Optional <code>variation</code> and <code>locks</code>. Uses the semantic cache before Jev; <code>"refresh": true</code> asks Jev again and replaces the cached judgement (10 per user per hour).</td></tr>
   <tr><td>GET</td><td><code>/api/schemes</code></td><td>schemes:read</td><td>List your saved schemes (<code>limit</code>, <code>offset</code>).</td></tr>
   <tr><td>POST</td><td><code>/api/schemes</code></td><td>schemes:write</td><td>Save a generated scheme: <code>{"name": "Dynumo", "generationId": "…"}</code>.</td></tr>
   <tr><td>GET</td><td><code>/api/schemes/{idOrSlug}</code></td><td>schemes:read</td><td>Retrieve a saved scheme.</td></tr>

@@ -119,6 +119,7 @@ export function openApiDocument(config: AppConfig) {
                   properties: {
                     concept: { type: 'string', maxLength: 120, example: 'autumn forest' },
                     variation: { type: 'integer', minimum: 0, description: 'Alternative interpretation from the same cached judgement (no extra Jev call).' },
+                    refresh: { type: 'boolean', default: false, description: 'Ask Jev again and replace the cached judgement for this concept. Uses a Jev credit and is rate limited per user (10 per hour).' },
                     locks: { type: 'object', properties: { primary: { type: 'string' }, secondary: { type: 'string' }, accent: { type: 'string' } }, description: 'Catalogue colour IDs to keep fixed.' },
                   },
                 },

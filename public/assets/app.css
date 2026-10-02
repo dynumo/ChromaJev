@@ -253,6 +253,12 @@ details.panel > summary .panel-title { margin: 0; }
 .secret { word-break: break-all; font-size: 14px; }
 .prose { max-width: 860px; }
 .prose pre { white-space: pre-wrap; }
+.changelog-entry { padding: 18px 0; border-top: 1px solid var(--app-border); }
+.changelog-entry h2 { margin: 0 0 4px; font-size: 20px; }
+.changelog-entry p, .changelog-entry ul { margin: 8px 0; }
+.changelog-admin { border-top: 1px solid var(--app-border); padding: 10px 0; }
+.changelog-admin summary { cursor: pointer; }
+.changelog-admin form { margin-top: 12px; }
 
 @media (max-width: 640px) {
   .site-header { flex-direction: column; align-items: flex-start; gap: 8px; }

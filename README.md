@@ -35,11 +35,12 @@ One Node.js process, one SQLite file, one Docker image. Design notes and the res
 
 ## 1. What ChromaJev is
 
-* an **interactive generator**: concept in → paired light/dark colour system out, with “Another interpretation” and optional colour locks;
+* an **interactive generator**: concept in → paired light/dark colour system out, with “Another interpretation”, optional colour locks, and **Run again** on cached results (asks Jev afresh and replaces the shared cached judgement; confirmed first, and limited to 10 per user per hour);
 * a **library** of named, saved schemes (`/schemes/dynumo`), each holding both modes;
 * a **component playground** with typography, buttons (normal/hover/focus/disabled), forms, cards, navigation, alerts, badges, tables, pagination, a modal and a menu — plus dashboard, landing page, documentation and mobile scenes;
 * a **JSON HTTP API** (with OpenAPI) and a **remote MCP server** with OAuth;
-* a small **multi-user app**: accounts, admin role, invitations, optional public sign-up with email verification, password reset.
+* a small **multi-user app**: accounts, admin role, invitations, optional public sign-up with email verification, password reset;
+* a public **changelog** (`/changelog`, linked from the footer) that admins write in **Admin → Changelog** (post, edit, delete; plain text, escaped).
 
 ## 2. Why Jev suits the task
 
@@ -117,6 +118,7 @@ Built into construction, not bolted on:
 
 Table `jev_evaluations` stores the *structured Jev answers* (not the palette), keyed by `(normalised_query, catalogue_version, question_set_version)`. Normalisation is deliberately conservative — Unicode NFKC, trim, collapse whitespace, lower-case — so `browser`, `Browser` and `  BROWSER ` share an entry while `brutalist`/`brutalism` do not. Stored with each entry: original and normalised query, raw answers with probabilities, the versioned model ID Jev reported (e.g. `jev-1.13.0`), token usage, versions, created/last-requested times, request and hit counts.
 
+* **Run again** (`refresh: true` on `POST /api/schemes/generate`) re-asks Jev and overwrites the entry in place — same ID, so saved-scheme provenance and hit counters survive; a failed refresh leaves the old judgement intact.
 * Hits make **zero** Jev calls; light, dark, alternatives and locks are all derived from the cached answers.
 * Concurrent misses for the same concept share one in-flight request.
 * Only validated, successful responses are stored.

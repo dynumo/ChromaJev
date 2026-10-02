@@ -17,6 +17,7 @@ import { accountPage, adminPage } from './views/admin.js';
 import { page } from './views/layout.js';
 import { generatorPage, libraryPage, schemePage } from './views/schemes.js';
 import { apiDocsPage, mcpDocsPage } from './views/docs.js';
+import { changelogPage } from './views/changelog.js';
 import { RateLimiter, parseCookies, clearCookie, cookieNames, requireAdmin, requireUser, safeNext, setCookie } from './middleware.js';
 import { SESSION_TTL_DAYS } from '../accounts/service.js';
 
@@ -360,6 +361,7 @@ export function webRoutes(ctx: AppContext): Router {
           cache: ctx.cache.stats(),
           jevConfigured: ctx.cache.jevConfigured,
           jevProvider: ctx.jev.provider,
+          changelog: ctx.changelog.list(),
         }),
       }),
     );
@@ -403,6 +405,24 @@ export function webRoutes(ctx: AppContext): Router {
     return `${u.email} is now ${u.role === 'admin' ? 'an administrator' : 'a user'}.`;
   }));
   r.post('/admin/cache/purge-stale', requireUser, requireAdmin, adminAction(() => `Removed ${ctx.cache.purgeStale()} stale cache entries.`));
+
+  r.post('/admin/changelog', requireUser, requireAdmin, adminAction((req) => {
+    const e = ctx.changelog.create(req.user!.id, { title: req.body.title, body: req.body.body, publishedAt: req.body.published_at });
+    return `Posted “${e.title}” to the changelog.`;
+  }));
+  r.post('/admin/changelog/:id/edit', requireUser, requireAdmin, adminAction((req) => {
+    const e = ctx.changelog.update(String(req.params.id), { title: req.body.title, body: req.body.body, publishedAt: req.body.published_at });
+    return `Updated “${e.title}”.`;
+  }));
+  r.post('/admin/changelog/:id/delete', requireUser, requireAdmin, adminAction((req) => {
+    const e = ctx.changelog.delete(String(req.params.id));
+    return `Deleted “${e.title}” from the changelog.`;
+  }));
+
+  // ── Changelog (public) ──────────────────────────────────────────────────
+  r.get('/changelog', (req, res) => {
+    res.send(page({ title: 'Changelog', user: req.user, csrfToken: req.csrfToken, active: 'changelog', body: changelogPage(ctx.changelog.list()) }));
+  });
 
   // ── Docs ────────────────────────────────────────────────────────────────
   r.get('/docs/api', (req, res) => {

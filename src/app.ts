@@ -10,6 +10,7 @@ import { issuerUrl, mcpResourceUrl } from './config.js';
 import { openDatabase, type DB } from './db/database.js';
 import { AccountService } from './accounts/service.js';
 import { SettingsService } from './accounts/settings.js';
+import { ChangelogService } from './changelog/service.js';
 import { SemanticCache } from './jev/cache.js';
 import type { JevClient } from './jev/client.js';
 import { createJevClient } from './jev/provider.js';
@@ -62,10 +63,11 @@ export async function createApp(config: AppConfig, overrides: AppOverrides = {})
   const accounts = new AccountService(db, config, settings, mail, log);
   const cache = new SemanticCache(db, jev);
   const schemes = new SchemeService(db, cache);
+  const changelog = new ChangelogService(db);
   const provider = await createOAuthProvider(config, db, accounts);
   accounts.onAccessRevoked((userId) => revokeAccountOAuth(db, userId));
 
-  const ctx: AppContext = { config, db, jev, cache, schemes, accounts, settings, mail, provider };
+  const ctx: AppContext = { config, db, jev, cache, schemes, accounts, settings, changelog, mail, provider };
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', config.trustProxy);
