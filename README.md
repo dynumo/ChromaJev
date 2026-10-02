@@ -114,6 +114,8 @@ Built into construction, not bolted on:
 
 `src/web/views/playground.ts` + `public/assets/playground.css`. Every rule uses only the scheme’s CSS custom properties (a test fails if a literal colour sneaks into the stylesheet). The theme is applied as `.pg-root[data-mode="light|dark"] { --primary: … }`, so switching mode is a single attribute change. Scenes: **Components**, **SaaS dashboard**, **Landing page**, **Documentation**, **Mobile app** — switchable while keeping the current mode.
 
+**Cache-busting.** Pages link CSS, JS and the favicon as `/assets/app.css?v=<content hash>` (`src/web/assets.ts`). A versioned URL is served `immutable` for a year; the hash changes only when the file does, so a new release is picked up on the next page load with no hard refresh and no manual version bump. Unversioned asset requests revalidate, and HTML pages are `private, no-cache`.
+
 ## 8. Semantic cache and Jev credit savings
 
 Table `jev_evaluations` stores the *structured Jev answers* (not the palette), keyed by `(normalised_query, catalogue_version, question_set_version)`. Normalisation is deliberately conservative — Unicode NFKC, trim, collapse whitespace, lower-case — so `browser`, `Browser` and `  BROWSER ` share an entry while `brutalist`/`brutalism` do not. Stored with each entry: original and normalised query, raw answers with probabilities, the versioned model ID Jev reported (e.g. `jev-1.13.0`), token usage, versions, created/last-requested times, request and hit counts.

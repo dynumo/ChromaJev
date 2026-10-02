@@ -98,7 +98,21 @@ export async function createApp(config: AppConfig, overrides: AppOverrides = {})
   });
   app.use(securityHeaders(config));
   app.use(basicAuth(config));
-  app.use('/assets', express.static(path.join(PUBLIC_DIR, 'assets'), { maxAge: config.env === 'production' ? '1h' : 0 }));
+  // Pages link assets as /assets/x?v=<content hash> (see web/assets.ts): a versioned URL never changes
+  // content, so it is cached for a year; an unversioned request must revalidate.
+  app.use(
+    '/assets',
+    express.static(path.join(PUBLIC_DIR, 'assets'), {
+      setHeaders: (res) => {
+        res.setHeader('Cache-Control', res.req.query.v ? 'public, max-age=31536000, immutable' : 'no-cache');
+      },
+    }),
+  );
+  // Everything else is dynamic and often per-user (CSRF tokens): never reuse it without asking the server.
+  app.use((_req, res, next) => {
+    res.setHeader('Cache-Control', 'private, no-cache');
+    next();
+  });
 
   // ── OAuth / MCP discovery ───────────────────────────────────────────────
   const resourceUrl = new URL(mcpResourceUrl(config));
