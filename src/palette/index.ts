@@ -11,7 +11,7 @@ import {
 } from '../jev/questions.js';
 import { buildAccessibilityReport } from './accessibility.js';
 import { interpret } from './interpret.js';
-import { buildMode, neutralSpec } from './modes.js';
+import { buildMode, darkSurfaceSpec, neutralSpec } from './modes.js';
 import { selectRoles, type RoleChoice, type RoleLocks } from './select.js';
 import { ALGORITHM_VERSION, type ColourScheme, type JudgementSummary, type SemanticColourRef } from './types.js';
 
@@ -40,8 +40,10 @@ export function buildScheme(concept: string, answers: JevAnswers, options: Build
   const { selection, index, available } = selectRoles(interp, options.variation ?? 0, locks);
   const neutral = neutralSpec(interp, selection.primary.colour);
 
+  const darkSurface = darkSurfaceSpec(interp, selection, neutral);
+
   const light = buildMode('light', selection, interp, neutral);
-  const dark = buildMode('dark', selection, interp, neutral);
+  const dark = buildMode('dark', selection, interp, neutral, darkSurface);
 
   return {
     concept,
@@ -54,6 +56,12 @@ export function buildScheme(concept: string, answers: JevAnswers, options: Build
       secondary: ref('secondary', selection.secondary),
       accent: ref('accent', selection.accent),
       neutral: { base: neutral.base, hue: round(neutral.hue, 1), chroma: round(neutral.chroma, 4) },
+      darkSurface: {
+        kind: darkSurface.kind,
+        hue: round(darkSurface.hue, 1),
+        chroma: round(darkSurface.chroma, 4),
+        source: darkSurface.source,
+      },
       monochrome: interp.monochrome >= 0.6,
     },
     light: light.tokens,
@@ -106,6 +114,7 @@ export function summariseJudgement(
     dominantFamily: rounded(topEntries(answers.dominantFamily, 5)),
     accentFamily: rounded(topEntries(answers.accentFamily, 5)),
     neutralBase: rounded(topEntries(answers.neutralBase, 4)),
+    ...(answers.darkSurface ? { darkSurface: rounded(topEntries(answers.darkSurface, 5)) } : {}),
     character: rounded(topEntries(answers.character, 4)),
     temperature: scoreSummary(answers.temperature, TEMPERATURE_LEVELS),
     saturation: scoreSummary(answers.saturation, SATURATION_LEVELS),

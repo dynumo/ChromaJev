@@ -77,11 +77,12 @@ For a new concept ChromaJev sends **one** request to `POST https://api.typesafe.
 | `dominant_family` | choice (11 families) | weighting candidates by family |
 | `accent_family` | choice | the small vivid highlight colour |
 | `neutral_base` | choice: warm / cool / pure / tinted | greys and surfaces |
+| `dark_surface` | choice: black / warm / cool / primary / secondary (optional) | dark-mode page background |
 | `character` | choice: organic, technical, playful, formal, luxurious… | shown in the Jev view |
 | `temperature`, `saturation`, `energy`, `contrast`, `lightness` | score (5 levels each) | chroma scale, accent vividness, surface spacing, recommended mode |
 | `monochrome` | noul | permits an intentionally single-hue palette |
 
-The full probability distributions are kept — not just the winners — and the concept text only ever appears in `state`, never inside question instructions. Answers are validated (`src/jev/answers.ts`); a malformed response is an error, not a guess.
+The full probability distributions are kept — not just the winners — and the concept text only ever appears in `state`, never inside question instructions. Answers are validated (`src/jev/answers.ts`); a malformed response is an error, not a guess (the one exception is the optional `dark_surface` answer, which older cached evaluations lack and which then falls back to a heuristic).
 
 ## 4. How palette construction works
 
@@ -94,7 +95,7 @@ The full probability distributions are kept — not just the winners — and the
 
 ## 5. Paired light/dark themes
 
-Every scheme has `light` and `dark`, built from the **same** semantic selection — no second Jev call. Dark mode is designed, not inverted: a tinted near-black background (L≈0.15–0.19, never pure black), a surface ladder (surface +0.035, elevated +0.075), brand colours lifted to L≈0.66–0.82 with ~12 % less chroma to avoid glare, and foregrounds chosen afresh. Status colours keep canonical hues (success ≈150°, warning ≈78°, error ≈27°, info ≈245°, nudged ≤6° toward the brand) so they stay recognisable in both modes.
+Every scheme has `light` and `dark`, built from the **same** semantic selection — no second Jev call. Dark mode is designed, not inverted: a dark background (L≈0.15–0.21, never pure black) whose colour is chosen by Jev's `dark_surface` answer — near-black, warm brown, cool slate, or a deep shade of the primary or secondary colour (so “Ruby City” gets oxblood rather than brown); evaluations cached before that question existed fall back to a heuristic over the older answers, a surface ladder (surface +0.035, elevated +0.075), brand colours lifted to L≈0.66–0.82 with ~12 % less chroma to avoid glare, and foregrounds chosen afresh. Status colours keep canonical hues (success ≈150°, warning ≈78°, error ≈27°, info ≈245°, nudged ≤6° toward the brand) so they stay recognisable in both modes.
 
 Each mode has 37 tokens: `background, surface, surfaceElevated, muted, text, textMuted, border, input, focusRing, link, primary, primaryForeground, primaryHover, primarySoft, primarySoftForeground, secondary, secondaryForeground, secondaryHover, accent, accentForeground, accentHover`, and for each of `success | warning | error | info`: the solid colour, its foreground, a soft background and soft-foreground text.
 

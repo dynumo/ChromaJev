@@ -40,6 +40,20 @@ export const NEUTRAL_BASE_OPTIONS = {
   tinted: 'Neutrals tinted noticeably with the main colour of the concept',
 } as const;
 
+/**
+ * Dark-mode page background. Added after qs-3 shipped: the answer is optional
+ * in `parseJevAnswers` (older cached evaluations lack it and fall back to a
+ * heuristic in the palette builder), so adding it does not bump
+ * QUESTION_SET_VERSION and does not discard the cache.
+ */
+export const DARK_SURFACE_OPTIONS = {
+  black: 'Near-black or charcoal: a dark background with no noticeable colour',
+  warm: 'Dark warm brown: espresso, chocolate, walnut or dark sand-tinted background',
+  cool: 'Dark cool slate: midnight blue-grey or ink-tinted background',
+  primary: 'A deep, dark shade of the single most characteristic colour of the concept',
+  secondary: 'A deep, dark shade of a second, supporting colour of the concept',
+} as const;
+
 export const CHARACTER_OPTIONS = {
   organic: 'Organic, natural, earthy',
   technical: 'Technical, precise, engineered',
@@ -135,6 +149,12 @@ export function buildQuestions(): Record<string, JevQuestion> {
     type: 'choice',
     instructions: 'Which kind of neutral background tones best suit a visual identity for the `concept`?',
     criteria: { ...NEUTRAL_BASE_OPTIONS },
+  };
+  questions.dark_surface = {
+    type: 'choice',
+    instructions:
+      'In a dark theme for a visual identity for the `concept`, which kind of dark page background would suit it best?',
+    criteria: { ...DARK_SURFACE_OPTIONS },
   };
   questions.character = {
     type: 'choice',

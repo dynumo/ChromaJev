@@ -77,6 +77,7 @@ avoid distractors.
 | `dominant_family` | choice over 12 hue families + neutral | Which hue family should dominate. |
 | `accent_family` | choice over hue families | Which family suits a small, vivid highlight (calls to action, badges). Asked independently, not conditioned on the dominant answer (avoids indirection). |
 | `neutral_base` | choice: warm / cool / pure / tinted | Character of greys and surfaces. |
+| `dark_surface` | choice: black / warm / cool / primary / secondary (optional; absent in older cache entries) | Hue of the dark-mode page background. |
 | `character` | choice: organic, technical, playful, formal, luxurious, utilitarian, retro, futuristic, calm, bold | Shown in Jev view; nudges chroma ceilings and neutral tint. |
 | `temperature` | score (5 levels, very cool → very warm) | Neutral hue, status-colour nudges, tie-breaking. |
 | `saturation` | score (5 levels, greyed → vivid) | Chroma scale. |
@@ -128,8 +129,13 @@ chroma reduction at constant L/H.
 3. **Light mode**: background L≈0.985, surface 1.0, elevated 1.0 (+shadow),
    muted surface L≈0.955; text L≈0.21; borders/inputs at fixed ΔL steps
    scaled by `contrast`. Brand colours keep their semantic L where it works.
-4. **Dark mode** (not an inversion): background L≈0.17 with neutral hue
-   tint, surface ladder +0.035/+0.07, text L≈0.94, brand colours lifted to
+4. **Dark mode** (not an inversion): background L≈0.17 (+0.02 when it is a
+   deep brand shade). Its hue comes from the optional `dark_surface` answer
+   (`black`, `warm`, `cool`, `primary`, `secondary`); `primary`/`secondary`
+   use that role's hue at chroma ≈0.03–0.06, the others a faint neutral tint.
+   Older cached evaluations lack the answer, so a heuristic over `neutral_base`,
+   saturation and the primary colour stands in (`semantic.darkSurface.source`
+   says which). Surface ladder surface ladder +0.035/+0.07, text L≈0.94, brand colours lifted to
    L≈0.72–0.80 with chroma ×0.85 to avoid glare, foregrounds re-chosen.
 5. **States**: hover/active computed by ΔL (direction depends on mode).
 6. **Status colours** (success 150°, warning 75°, error 27°, info 245°)

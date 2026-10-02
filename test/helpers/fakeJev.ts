@@ -19,6 +19,7 @@ const HINTS: Record<string, string[]> = {
   cyberpunk: ['pink', 'cyan', 'purple'],
   brutalist: ['neutral'],
   retro: ['orange', 'yellow', 'brown'],
+  ruby: ['red'],
 };
 
 /**
@@ -55,6 +56,7 @@ export function fakeAnswers(concept: string): Record<string, unknown> {
   answers.dominant_family = choiceDist('dominant_family', [...families]);
   answers.accent_family = choiceDist('accent_family', [...families].slice(-1));
   answers.neutral_base = choiceDist('neutral_base', [families.has('neutral') ? 'pure' : 'warm']);
+  answers.dark_surface = choiceDist('dark_surface', [families.has('neutral') ? 'black' : families.has('brown') ? 'warm' : 'primary']);
   answers.character = choiceDist('character', ['calm']);
 
   const scoreAns = (key: string, centre: number) => {

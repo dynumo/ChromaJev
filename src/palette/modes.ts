@@ -11,7 +11,7 @@ import {
   rotateHue,
   type Oklch,
 } from '../colour/oklch.js';
-import type { Interpretation, NeutralBase } from './interpret.js';
+import type { DarkSurfaceKind, Interpretation, NeutralBase } from './interpret.js';
 import type { Selection } from './select.js';
 import type { Mode, ModeToken, ModeTokens, TokenDetail } from './types.js';
 
@@ -53,6 +53,71 @@ export function neutralSpec(interp: Interpretation, primary: CatalogueColour): N
       return { base: 'pure', hue: warm ? 75 : cool ? 250 : primary.oklch.h, chroma: warm || cool ? 0.003 : 0.0015 };
     }
   }
+}
+
+export interface DarkSurfaceSpec {
+  kind: DarkSurfaceKind;
+  hue: number;
+  chroma: number;
+  /** Lift applied to the background lightness so a coloured surface still reads as that colour. */
+  lift: number;
+  source: 'jev' | 'heuristic';
+}
+
+/**
+ * Where the dark page background gets its hue. Jev's `dark_surface` answer
+ * decides when present. Evaluations cached before that question existed fall
+ * back to a heuristic over the older answers: a deep shade of the primary
+ * colour when Jev wanted tinted neutrals, or when the primary is a vivid,
+ * non-brown hue; otherwise the neutral base as before.
+ */
+export function darkSurfaceSpec(interp: Interpretation, selection: Selection, neutral: NeutralSpec): DarkSurfaceSpec {
+  const probs = interp.darkSurfaceProbabilities;
+  let kind: DarkSurfaceKind;
+  let strength: number;
+  let source: DarkSurfaceSpec['source'];
+  if (probs) {
+    const [top, p] = Object.entries(probs).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
+    kind = top as DarkSurfaceKind;
+    strength = p;
+    source = 'jev';
+  } else {
+    const primary = selection.primary.colour;
+    const vividBrand = primary.chromatic && primary.family !== 'brown' && interp.saturation >= 0.6;
+    kind =
+      interp.neutralBase === 'tinted' || vividBrand
+        ? 'primary'
+        : interp.neutralBase === 'warm'
+          ? 'warm'
+          : interp.neutralBase === 'cool'
+            ? 'cool'
+            : 'black';
+    strength = interp.neutralBaseProbabilities[interp.neutralBase] ?? 0.5;
+    source = 'heuristic';
+  }
+
+  switch (kind) {
+    case 'primary':
+    case 'secondary': {
+      const brand = (kind === 'primary' ? selection.primary : selection.secondary).colour;
+      if (!brand.chromatic) return fromNeutral(neutral, source); // a grey brand has no hue to deepen
+      // Deep but not garish: vivid concepts and confident answers get more colour.
+      const chroma = clamp(0.03 + 0.03 * interp.saturation + 0.01 * strength, 0.025, Math.max(0.025, brand.oklch.c * 0.55));
+      return { kind, hue: brand.oklch.h, chroma, lift: 0.02, source };
+    }
+    case 'warm':
+      return { kind, hue: 75, chroma: 0.008 + 0.01 * strength + 0.004 * interp.temperature, lift: 0, source };
+    case 'cool':
+      return { kind, hue: 250, chroma: 0.008 + 0.01 * strength + 0.004 * (1 - interp.temperature), lift: 0, source };
+    case 'black':
+    default:
+      return { kind: 'black', hue: neutral.hue, chroma: Math.min(neutral.chroma, 0.004), lift: 0, source };
+  }
+}
+
+function fromNeutral(neutral: NeutralSpec, source: DarkSurfaceSpec['source']): DarkSurfaceSpec {
+  const kind: DarkSurfaceKind = neutral.base === 'warm' ? 'warm' : neutral.base === 'cool' ? 'cool' : 'black';
+  return { kind, hue: neutral.hue, chroma: Math.min(0.018, neutral.chroma), lift: 0, source };
 }
 
 /**
@@ -141,12 +206,22 @@ export interface ModeBuild {
   details: Details;
 }
 
-export function buildMode(mode: Mode, selection: Selection, interp: Interpretation, neutral: NeutralSpec): ModeBuild {
+export function buildMode(
+  mode: Mode,
+  selection: Selection,
+  interp: Interpretation,
+  neutral: NeutralSpec,
+  darkSurface?: DarkSurfaceSpec,
+): ModeBuild {
   const details: Details = {};
   const t = {} as ModeTokens;
   const k = interp.contrast;
-  const nh = neutral.hue;
-  const nc = neutral.chroma;
+  // Dark mode takes its surface hue from the dark-surface decision; everything
+  // else (text, borders, light mode) keeps following the neutral spec unless
+  // dark mode has chosen a different hue.
+  const ds = mode === 'dark' ? darkSurface : undefined;
+  const nh = ds ? ds.hue : neutral.hue;
+  const nc = ds ? Math.max(ds.chroma, 0.0015) : neutral.chroma;
   const dir = mode === 'light' ? 'darker' : 'lighter';
 
   // ── Neutral surface ladder ────────────────────────────────────────────
@@ -158,8 +233,9 @@ export function buildMode(mode: Mode, selection: Selection, interp: Interpretati
     t.muted = hex({ l: bgL - 0.035 - 0.015 * k, c: nc * 0.9, h: nh });
     t.border = hex({ l: 0.885 - 0.06 * k, c: nc * 1.1, h: nh });
   } else {
-    const bgL = 0.155 + 0.035 * interp.lightness - 0.015 * k;
-    const tint = nc > 0.002 ? Math.min(0.018, Math.max(nc * 1.2, 0.006)) : nc;
+    const bgL = 0.155 + 0.035 * interp.lightness - 0.015 * k + (ds?.lift ?? 0);
+    // Neutral-tinted surfaces stay subtle; a deliberately coloured surface (a deep brand shade) keeps its full chroma.
+    const tint = ds && (ds.kind === 'primary' || ds.kind === 'secondary') ? nc : nc > 0.002 ? Math.min(0.018, Math.max(nc * 1.2, 0.006)) : nc;
     t.background = hex({ l: bgL, c: tint, h: nh });
     t.surface = hex({ l: bgL + 0.035, c: tint, h: nh });
     t.surfaceElevated = hex({ l: bgL + 0.075, c: tint, h: nh });

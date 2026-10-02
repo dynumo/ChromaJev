@@ -51,6 +51,7 @@ interface Judgement {
   dominantFamily: Dist[];
   accentFamily: Dist[];
   neutralBase: Dist[];
+  darkSurface?: Dist[];
   character: Dist[];
   temperature: ScoreSummary;
   saturation: ScoreSummary;
@@ -388,6 +389,7 @@ class Workspace {
         dist('Dominant family', j.dominantFamily),
         dist('Accent family', j.accentFamily),
         dist('Neutral base', j.neutralBase),
+        ...(j.darkSurface ? [dist('Dark background', j.darkSurface)] : []),
         dist('Character', j.character),
       ),
       el(

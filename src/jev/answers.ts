@@ -3,6 +3,7 @@ import { CATALOGUE } from '../colour/catalogue.js';
 import {
   ACCENT_FAMILY_OPTIONS,
   CHARACTER_OPTIONS,
+  DARK_SURFACE_OPTIONS,
   FAMILY_OPTIONS,
   NEUTRAL_BASE_OPTIONS,
   fitKey,
@@ -25,6 +26,8 @@ export interface JevAnswers {
   dominantFamily: Record<string, number>;
   accentFamily: Record<string, number>;
   neutralBase: Record<string, number>;
+  /** Absent in evaluations cached before the question existed (or if malformed). */
+  darkSurface: Record<string, number> | null;
   character: Record<string, number>;
   temperature: ScoreJudgement;
   saturation: ScoreJudgement;
@@ -63,6 +66,20 @@ function choice(raw: Record<string, unknown>, key: string, options: string[]) {
   if (total <= 0) throw new Error(`answer "${key}" has an empty distribution`);
   for (const o of options) out[o] = out[o] / total;
   return { probs: out, confidence: parsed.data.confidence ?? null };
+}
+
+/**
+ * For answers added after the cache was populated: missing or malformed means
+ * "not answered" (the palette builder then falls back to a heuristic) rather
+ * than failing the whole evaluation.
+ */
+function optionalChoice(raw: Record<string, unknown>, key: string, options: string[]): Record<string, number> | null {
+  if (raw[key] === undefined) return null;
+  try {
+    return choice(raw, key, options).probs;
+  } catch {
+    return null;
+  }
 }
 
 function score(raw: Record<string, unknown>, key: string, levels: number): ScoreJudgement {
@@ -104,6 +121,7 @@ export function parseJevAnswers(raw: Record<string, unknown>): JevAnswers {
     dominantFamily: choice(raw, 'dominant_family', Object.keys(FAMILY_OPTIONS)).probs,
     accentFamily: choice(raw, 'accent_family', Object.keys(ACCENT_FAMILY_OPTIONS)).probs,
     neutralBase: choice(raw, 'neutral_base', Object.keys(NEUTRAL_BASE_OPTIONS)).probs,
+    darkSurface: optionalChoice(raw, 'dark_surface', Object.keys(DARK_SURFACE_OPTIONS)),
     character: choice(raw, 'character', Object.keys(CHARACTER_OPTIONS)).probs,
     temperature: score(raw, 'temperature', 5),
     saturation: score(raw, 'saturation', 5),
